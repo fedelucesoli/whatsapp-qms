@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: whatsapp-qms-app
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ACCESS_TOKEN=${ACCESS_TOKEN}
+      - APP_SECRET=${APP_SECRET}
+      - APP_ID=${APP_ID}
+      - VERIFY_TOKEN=${VERIFY_TOKEN}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: whatsapp-qms-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  redis_data:
