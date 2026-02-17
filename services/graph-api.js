@@ -14,9 +14,7 @@ const config = require("./config");
 FacebookAdsApi.init(config.accessToken);
 
 const whatsappApi = new FacebookAdsApi(config.accessToken);
-const instagramApi = config.igAccessToken
-  ? new FacebookAdsApi(config.igAccessToken)
-  : null;
+const instagramApi = new FacebookAdsApi(config.igAccessToken);
 
 module.exports = class GraphApi {
   static async #makeApiCall(
@@ -26,7 +24,18 @@ module.exports = class GraphApi {
     platform = "whatsapp",
   ) {
     try {
-      // Mark as read and send typing indicator
+      const api = platform === "whatsapp" ? whatsappApi : instagramApi;
+      if (!api) {
+        throw new Error(
+          `API instance for platform ${platform} is not initialized. Please check your environment variables.`,
+        );
+      }
+
+      console.log(
+        `[${platform.toUpperCase()}] Making API call to: /${senderId}/messages`,
+      );
+
+      // Mark as read
       if (messageId) {
         let typingBody;
         if (platform === "whatsapp") {
@@ -34,9 +43,6 @@ module.exports = class GraphApi {
             messaging_product: "whatsapp",
             status: "read",
             message_id: messageId,
-            typing_indicator: {
-              type: "text",
-            },
           };
         } else {
           // Instagram mark as read
@@ -46,17 +52,10 @@ module.exports = class GraphApi {
           };
         }
 
-        const api = platform === "whatsapp" ? whatsappApi : instagramApi;
-        if (api) {
-          await api.call("POST", [`${senderId}`, "messages"], typingBody);
-        }
-      }
-
-      const api = platform === "whatsapp" ? whatsappApi : instagramApi;
-      if (!api) {
-        throw new Error(
-          `API instance for platform ${platform} is not initialized. Please check your environment variables.`,
+        console.log(
+          `[${platform.toUpperCase()}] Marking message ${messageId} as read...`,
         );
+        await api.call("POST", [`${senderId}`, "messages"], typingBody);
       }
 
       const response = await api.call(
@@ -64,10 +63,19 @@ module.exports = class GraphApi {
         [`${senderId}`, "messages"],
         requestBody,
       );
-      console.log("API call successful:", response);
+      console.log(`[${platform.toUpperCase()}] API call successful`);
       return response;
     } catch (error) {
-      console.error("Error making API call:", error);
+      console.error(
+        `[${platform.toUpperCase()}] Error making API call to /${senderId}/messages:`,
+        error.message,
+      );
+      if (error.response) {
+        console.error(
+          `[${platform.toUpperCase()}] Meta Error Response:`,
+          JSON.stringify(error.response, null, 2),
+        );
+      }
       throw error;
     }
   }
@@ -245,7 +253,12 @@ module.exports = class GraphApi {
     return this.#makeApiCall(messageId, senderPhoneNumberId, requestBody);
   }
 
-  static async sendInstagramTextMessage(senderPageId, recipientId, text) {
+  static async sendInstagramTextMessage(
+    senderPageId,
+    recipientId,
+    text,
+    tag = null,
+  ) {
     const requestBody = {
       recipient: {
         id: recipientId,
@@ -254,6 +267,11 @@ module.exports = class GraphApi {
         text: text,
       },
     };
+
+    if (tag) {
+      requestBody.messaging_type = "MESSAGE_TAG";
+      requestBody.tag = tag;
+    }
 
     return this.#makeApiCall(null, senderPageId, requestBody, "instagram");
   }
@@ -265,5 +283,20 @@ module.exports = class GraphApi {
     };
 
     return this.#makeApiCall(null, senderPageId, requestBody, "instagram");
+  }
+
+  // Conversations API
+  static async getInstagramConversations(pageId) {
+    if (!instagramApi) return null;
+    return instagramApi.call("GET", ["me", "conversations"], {
+      platform: "instagram",
+    });
+  }
+
+  static async getInstagramMessages(conversationId) {
+    if (!instagramApi) return null;
+    return instagramApi.call("GET", [conversationId], {
+      fields: "messages",
+    });
   }
 };

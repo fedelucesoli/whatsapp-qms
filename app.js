@@ -81,13 +81,58 @@ app.post("/webhook", (req, res) => {
     });
   } else if (req.body.object === "instagram") {
     req.body.entry.forEach((entry) => {
-      entry.messaging.forEach((messagingEvent) => {
-        if (messagingEvent.message) {
-          Conversation.handleInstagramMessage(entry.id, messagingEvent);
-        } else if (messagingEvent.delivery || messagingEvent.read) {
-          Conversation.handleInstagramStatus(entry.id, messagingEvent);
-        }
-      });
+      // Instagram payloads can have 'messaging' or 'changes'
+      if (entry.messaging) {
+        entry.messaging.forEach((messagingEvent) => {
+          console.log("-----------------------------------------");
+          console.log(
+            "Incoming Instagram Messaging Event at:",
+            new Date().toISOString(),
+          );
+          console.log(JSON.stringify(messagingEvent, null, 2));
+          console.log("-----------------------------------------");
+
+          // Determine the correct Page/Business ID
+          const businessId =
+            entry.id && entry.id !== "0"
+              ? entry.id
+              : messagingEvent.recipient.id;
+
+          if (messagingEvent.message) {
+            Conversation.handleInstagramMessage(businessId, messagingEvent);
+          } else if (messagingEvent.delivery || messagingEvent.read) {
+            Conversation.handleInstagramStatus(businessId, messagingEvent);
+          }
+        });
+      } else if (entry.changes) {
+        entry.changes.forEach((change) => {
+          console.log("-----------------------------------------");
+          console.log(
+            "Incoming Instagram Change Event at:",
+            new Date().toISOString(),
+          );
+          console.log(JSON.stringify(change, null, 2));
+          console.log("-----------------------------------------");
+
+          if (change.field === "messages") {
+            // Adapt 'changes' format to look like 'messaging' for the handler
+            const messagingEvent = {
+              sender: change.value.sender,
+              recipient: change.value.recipient,
+              timestamp: change.value.timestamp,
+              message: change.value.message,
+            };
+
+            // Determine the correct Page/Business ID
+            const businessId =
+              entry.id && entry.id !== "0"
+                ? entry.id
+                : messagingEvent.recipient.id;
+
+            Conversation.handleInstagramMessage(businessId, messagingEvent);
+          }
+        });
+      }
     });
   }
 
@@ -114,13 +159,43 @@ function verifyRequestSignature(req, res, buf) {
   } else {
     let elements = signature.split("=");
     let signatureHash = elements[1];
+
+    // Try verifying with the main App Secret
     let expectedHash = crypto
       .createHmac("sha256", config.appSecret)
       .update(buf)
       .digest("hex");
-    if (signatureHash != expectedHash) {
-      throw new Error("Couldn't validate the request signature.");
+
+    if (signatureHash === expectedHash) {
+      return;
     }
+
+    // If main secret fails, try with IG App Secret if it's different
+    if (config.igAppSecret && config.igAppSecret !== config.appSecret) {
+      let expectedHashIG = crypto
+        .createHmac("sha256", config.igAppSecret)
+        .update(buf)
+        .digest("hex");
+
+      if (signatureHash === expectedHashIG) {
+        return;
+      }
+    }
+
+    console.error("Signature mismatch!");
+    console.error("Received signature hash:", signatureHash);
+    console.error(
+      "Main appSecret used for verification:",
+      config.appSecret.substring(0, 4) + "...",
+    );
+    if (config.igAppSecret !== config.appSecret) {
+      console.error(
+        "IG appSecret used for verification:",
+        config.igAppSecret.substring(0, 4) + "...",
+      );
+    }
+
+    throw new Error("Couldn't validate the request signature.");
   }
 }
 
