@@ -12,12 +12,20 @@ module.exports = class Message {
     this.id = rawMessage.id;
 
     let type = rawMessage.type;
-    if (type === 'interactive') {
+    if (type === "interactive") {
       this.type = rawMessage.interactive.button_reply.id;
+    } else if (rawMessage.text) {
+      this.type = "text";
+      this.text = rawMessage.text.body || rawMessage.text;
+    } else if (rawMessage.message && rawMessage.message.text) {
+      // Instagram format
+      this.type = "text";
+      this.text = rawMessage.message.text;
     } else {
-      this.type = 'unknown'
+      this.type = "unknown";
     }
 
-    this.senderPhoneNumber = rawMessage.from;
+    this.senderPhoneNumber =
+      rawMessage.from || (rawMessage.sender ? rawMessage.sender.id : undefined);
   }
 };

@@ -9,13 +9,17 @@
 
 const constants = require("./constants");
 const config = require("./config");
-const GraphApi = require('./graph-api');
-const Message = require('./message');
-const Status = require('./status');
-const Cache = require('./redis');
+const GraphApi = require("./graph-api");
+const Message = require("./message");
+const Status = require("./status");
+const Cache = require("./redis");
 
-
-function sendTryOutDemoMessage(messageId, senderPhoneNumberId, recipientPhoneNumber, messageBody) {
+function sendTryOutDemoMessage(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber,
+  messageBody,
+) {
   return GraphApi.messageWithInteractiveReply(
     messageId,
     senderPhoneNumberId,
@@ -33,12 +37,16 @@ function sendTryOutDemoMessage(messageId, senderPhoneNumberId, recipientPhoneNum
       {
         id: constants.REPLY_OFFER_ID,
         title: constants.REPLY_OFFER_CTA,
-      }
-    ]
+      },
+    ],
   );
 }
 
-function sendInteractiveMediaMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
+function sendInteractiveMediaMessage(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber,
+) {
   return GraphApi.messageWithUtilityTemplate(
     messageId,
     senderPhoneNumberId,
@@ -46,12 +54,17 @@ function sendInteractiveMediaMessage(messageId, senderPhoneNumberId, recipientPh
     {
       templateName: "grocery_delivery_utility",
       locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1530053877871776",
-    }
+      imageLink:
+        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1530053877871776",
+    },
   );
 }
 
-function sendLimitedTimeOfferMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
+function sendLimitedTimeOfferMessage(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber,
+) {
   return GraphApi.messageWithLimitedTimeOfferTemplate(
     messageId,
     senderPhoneNumberId,
@@ -59,13 +72,18 @@ function sendLimitedTimeOfferMessage(messageId, senderPhoneNumberId, recipientPh
     {
       templateName: "strawberries_limited_offer",
       locale: "en_US",
-      imageLink: "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1393969325614091",
+      imageLink:
+        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1393969325614091",
       offerCode: "BERRIES20",
-    }
+    },
   );
 }
 
-function sendMediaCarouselMessage(messageId, senderPhoneNumberId, recipientPhoneNumber) {
+function sendMediaCarouselMessage(
+  messageId,
+  senderPhoneNumberId,
+  recipientPhoneNumber,
+) {
   return GraphApi.messageWithMediaCardCarousel(
     messageId,
     senderPhoneNumberId,
@@ -75,16 +93,15 @@ function sendMediaCarouselMessage(messageId, senderPhoneNumberId, recipientPhone
       locale: "en_US",
       imageLinks: [
         "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=1389202275965231",
-        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=3255815791260974"
-      ]
-    }
+        "https://scontent.xx.fbcdn.net/mci_ab/uap/asset_manager/id/?ab_b=e&ab_page=AssetManagerID&ab_entry=3255815791260974",
+      ],
+    },
   );
 }
 
 async function markMessageForFollowUp(messageId) {
   await Cache.insert(messageId);
 }
-
 
 module.exports = class Conversation {
   constructor(phoneNumberId) {
@@ -99,7 +116,7 @@ module.exports = class Conversation {
         let interactiveMediaResponse = await sendInteractiveMediaMessage(
           message.id,
           senderPhoneNumberId,
-          message.senderPhoneNumber
+          message.senderPhoneNumber,
         );
         await markMessageForFollowUp(interactiveMediaResponse.messages[0].id);
         break;
@@ -107,7 +124,7 @@ module.exports = class Conversation {
         let mediaCarouselResponse = await sendMediaCarouselMessage(
           message.id,
           senderPhoneNumberId,
-          message.senderPhoneNumber
+          message.senderPhoneNumber,
         );
         await markMessageForFollowUp(mediaCarouselResponse.messages[0].id);
         break;
@@ -115,7 +132,7 @@ module.exports = class Conversation {
         let ltoResponse = await sendLimitedTimeOfferMessage(
           message.id,
           senderPhoneNumberId,
-          message.senderPhoneNumber
+          message.senderPhoneNumber,
         );
         await markMessageForFollowUp(ltoResponse.messages[0].id);
         break;
@@ -124,7 +141,7 @@ module.exports = class Conversation {
           message.id,
           senderPhoneNumberId,
           message.senderPhoneNumber,
-          constants.APP_DEFAULT_MESSAGE
+          constants.APP_DEFAULT_MESSAGE,
         );
         break;
     }
@@ -134,7 +151,7 @@ module.exports = class Conversation {
     const status = new Status(rawStatus);
 
     // Only handle delivered and read statuses
-    if (!(status.status === 'delivered' || status.status === 'read')) {
+    if (!(status.status === "delivered" || status.status === "read")) {
       return;
     }
 
@@ -145,8 +162,32 @@ module.exports = class Conversation {
         undefined,
         senderPhoneNumberId,
         status.recipientPhoneNumber,
-        constants.APP_TRY_ANOTHER_MESSAGE
+        constants.APP_TRY_ANOTHER_MESSAGE,
       );
     }
+  }
+
+  static async handleInstagramMessage(pageId, messagingEvent) {
+    const message = new Message(messagingEvent);
+    const recipientId = messagingEvent.sender.id;
+
+    console.log(
+      `Handling Instagram message from ${recipientId}: ${message.text}`,
+    );
+
+    // For now, handle it the same way (send a default text response)
+    return GraphApi.sendInstagramTextMessage(
+      pageId,
+      recipientId,
+      constants.APP_DEFAULT_MESSAGE,
+    );
+  }
+
+  static async handleInstagramStatus(pageId, messagingEvent) {
+    // Basic implementation for status handling if needed
+    console.log(
+      "Instagram status update received:",
+      JSON.stringify(messagingEvent, null, 2),
+    );
   }
 };

@@ -16,7 +16,9 @@ const ENV_VARS = [
   "APP_SECRET",
   "VERIFY_TOKEN",
   "REDIS_HOST",
-  "REDIS_PORT"
+  "REDIS_PORT",
+  "IG_ACCESS_TOKEN",
+  "IG_PAGE_ID",
 ];
 
 module.exports = Object.freeze({
@@ -24,6 +26,11 @@ module.exports = Object.freeze({
   appSecret: process.env.APP_SECRET,
   accessToken: process.env.ACCESS_TOKEN,
   verifyToken: process.env.VERIFY_TOKEN,
+
+  // Instagram Configuration
+  igAccessToken: process.env.IG_ACCESS_TOKEN,
+  igPageId: process.env.IG_PAGE_ID,
+  igAppSecret: process.env.IG_APP_SECRET || process.env.APP_SECRET,
 
   // Server configuration
   port: process.env.PORT || 8080,
@@ -36,5 +43,5 @@ module.exports = Object.freeze({
         console.warn("WARNING: Missing the environment variable " + key);
       }
     });
-  }
+  },
 });

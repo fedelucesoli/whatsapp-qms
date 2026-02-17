@@ -12,6 +12,10 @@ services:
       - VERIFY_TOKEN=${VERIFY_TOKEN}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
     depends_on:
       - redis
     restart: always
